@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agente de reservas — demo</title>
+<style>
+  :root{
+    --fondo:#0d1418; --panel:#131c21; --barra:#1f2c33; --linea:#2a3942;
+    --texto:#e9edef; --suave:#8696a0; --verde:#005c4b; --verde-claro:#25d366;
+    --burbuja:#202c33; --acento:#00a884;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--fondo); color:var(--texto);
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif; font-size:15px;
+  }
+  .cabecera{
+    padding:14px 20px; border-bottom:1px solid var(--linea);
+    display:flex; align-items:baseline; gap:14px; flex-wrap:wrap;
+  }
+  .cabecera h1{font-size:16px; margin:0; font-weight:600}
+  .cabecera span{color:var(--suave); font-size:13px}
+  .marco{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:0; height:calc(100vh - 53px)}
+  @media(max-width:900px){ .marco{grid-template-columns:1fr; height:auto} }
+
+  /* --- chat --- */
+  .chat{display:flex; flex-direction:column; background:var(--panel); border-right:1px solid var(--linea); min-height:0}
+  .chat-barra{
+    background:var(--barra); padding:10px 16px; display:flex; align-items:center; gap:12px;
+    border-bottom:1px solid var(--linea);
+  }
+  .avatar{
+    width:38px; height:38px; border-radius:50%; background:var(--acento);
+    display:grid; place-items:center; font-weight:700; color:#0b141a; flex:none;
+  }
+  .chat-barra b{display:block; font-size:15px}
+  .chat-barra small{color:var(--suave); font-size:12px}
+  .mensajes{
+    flex:1; overflow-y:auto; padding:18px 16px; display:flex; flex-direction:column; gap:8px;
+    min-height:340px;
+  }
+  .msg{
+    max-width:78%; padding:8px 11px; border-radius:8px; white-space:pre-wrap;
+    line-height:1.45; font-size:14.5px; word-wrap:break-word;
+  }
+  .bot{background:var(--burbuja); align-self:flex-start; border-top-left-radius:2px}
+  .yo{background:var(--verde); align-self:flex-end; border-top-right-radius:2px}
+  .hora{display:block; font-size:11px; color:var(--suave); text-align:right; margin-top:3px}
+  .escribiendo{color:var(--suave); font-size:13px; padding:0 4px}
+  .entrada{display:flex; gap:8px; padding:12px; background:var(--barra); border-top:1px solid var(--linea)}
+  .entrada input{
+    flex:1; background:var(--burbuja); border:none; border-radius:20px; padding:11px 16px;
+    color:var(--texto); font-size:14.5px; outline:none; min-width:0;
+  }
+  .entrada button{
+    background:var(--acento); border:none; border-radius:50%; width:42px; height:42px;
+    color:#0b141a; font-size:17px; cursor:pointer; flex:none;
+  }
+  .entrada button:disabled{opacity:.5; cursor:default}
+  .atajos{display:flex; flex-wrap:wrap; gap:6px; padding:0 12px 12px; background:var(--barra)}
+  .atajos button{
+    background:transparent; border:1px solid var(--linea); color:var(--suave);
+    border-radius:14px; padding:5px 11px; font-size:12.5px; cursor:pointer;
+  }
+  .atajos button:hover{border-color:var(--acento); color:var(--texto)}
+
+  /* --- hoja de sala --- */
+  .sala{padding:18px 20px; overflow-y:auto; min-height:0}
+  .sala h2{font-size:14px; margin:0 0 4px; letter-spacing:.04em; text-transform:uppercase; color:var(--suave)}
+  .sala .dia{font-size:17px; margin:0 0 14px; font-weight:600}
+  .totales{display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap}
+  .caja{background:var(--panel); border:1px solid var(--linea); border-radius:8px; padding:10px 14px; flex:1; min-width:110px}
+  .caja b{display:block; font-size:21px; line-height:1.2}
+  .caja span{color:var(--suave); font-size:12px}
+  table{width:100%; border-collapse:collapse; font-size:13.5px}
+  th{text-align:left; color:var(--suave); font-weight:500; padding:6px 8px; border-bottom:1px solid var(--linea); font-size:12px}
+  td{padding:9px 8px; border-bottom:1px solid var(--linea); vertical-align:top}
+  tr.nueva{animation:entra 1.6s ease}
+  @keyframes entra{from{background:rgba(0,168,132,.28)} to{background:transparent}}
+  .cod{color:var(--suave); font-size:11.5px; font-family:ui-monospace,Consolas,monospace}
+  .nota{color:#f0b429; font-size:12.5px; display:block; margin-top:3px}
+  .vacio{color:var(--suave); padding:22px 8px; font-size:14px}
+  .pie{margin-top:18px; color:var(--suave); font-size:12.5px; line-height:1.6; border-top:1px solid var(--linea); padding-top:14px}
+  .pie code{background:var(--panel); padding:1px 5px; border-radius:4px; font-size:12px}
+</style>
+</head>
+<body>
+
+<div class="cabecera">
+  <h1>Agente de reservas</h1>
+  <span>La conversación de la izquierda y la hoja de sala de la derecha corren sobre el mismo motor que el servidor MCP.</span>
+</div>
+
+<div class="marco">
+
+  <section class="chat">
+    <div class="chat-barra">
+      <div class="avatar">CL</div>
+      <div>
+        <b>Casa Lola</b>
+        <small id="estado">en línea</small>
+      </div>
+    </div>
+    <div class="mensajes" id="mensajes"></div>
+    <div class="atajos" id="atajos"></div>
+    <form class="entrada" id="formulario">
+      <input id="texto" placeholder="Escribe un mensaje" autocomplete="off">
+      <button type="submit" id="enviar">➤</button>
+    </form>
+  </section>
+
+  <section class="sala">
+    <h2>Hoja de sala</h2>
+    <p class="dia" id="dia">—</p>
+    <div class="totales">
+      <div class="caja"><b id="n-reservas">0</b><span>reservas</span></div>
+      <div class="caja"><b id="n-pax">0</b><span>comensales</span></div>
+      <div class="caja"><b id="aforo">—</b><span>aforo del local</span></div>
+    </div>
+    <table>
+      <thead><tr><th>Hora</th><th>Mesa</th><th>Sala</th><th>Suelta</th></tr></thead>
+      <tbody id="filas"></tbody>
+    </table>
+    <div class="vacio" id="vacio">Todavía no hay reservas ese día. Cierra una en el chat y aparece aquí.</div>
+    <div class="pie">
+      La columna <b>Suelta</b> es la hora a la que la mesa queda libre: 1 h 15 para 2-3 personas,
+      1 h 30 para 4-6 y 2 h a partir de 7. Por eso el mismo sitio se vende varias veces en un turno.<br><br>
+      Datos de la demo en <code>datos/demo.json</code>. La agenda de verdad no se toca.
+    </div>
+  </section>
+
+</div>
+
+<script>
+const SESION = "demo-" + Math.random().toString(36).slice(2, 8);
+const $ = id => document.getElementById(id);
+let diaVisible = null;
+let codigosPrevios = new Set();
+
+function hora(){
+  return new Date().toLocaleTimeString("es-ES", {hour:"2-digit", minute:"2-digit"});
+}
+
+function pinta(texto, quien){
+  const div = document.createElement("div");
+  div.className = "msg " + quien;
+  div.textContent = texto;
+  const t = document.createElement("span");
+  t.className = "hora";
+  t.textContent = hora();
+  div.appendChild(t);
+  $("mensajes").appendChild(div);
+  $("mensajes").scrollTop = $("mensajes").scrollHeight;
+}
+
+const ATAJOS = [
+  "Somos 4 el viernes a las 21:30",
+  "Somos 9 el viernes para cenar",
+  "Quiero cambiar la reserva",
+  "Quiero hablar con una persona"
+];
+
+function pintaAtajos(){
+  const caja = $("atajos");
+  caja.innerHTML = "";
+  ATAJOS.forEach(t => {
+    const b = document.createElement("button");
+    b.textContent = t;
+    b.onclick = () => { $("texto").value = t; $("formulario").requestSubmit(); };
+    caja.appendChild(b);
+  });
+  const reset = document.createElement("button");
+  reset.textContent = "↻ empezar de nuevo";
+  reset.onclick = arranca;
+  caja.appendChild(reset);
+}
+
+async function arranca(){
+  $("mensajes").innerHTML = "";
+  const r = await fetch("/api/reiniciar", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({sesion:SESION})
+  });
+  const d = await r.json();
+  pinta(d.respuesta, "bot");
+  refrescaSala(diaVisible);
+}
+
+$("formulario").onsubmit = async e => {
+  e.preventDefault();
+  const texto = $("texto").value.trim();
+  if(!texto) return;
+  pinta(texto, "yo");
+  $("texto").value = "";
+  $("enviar").disabled = true;
+  $("estado").textContent = "escribiendo…";
+  try{
+    const r = await fetch("/api/mensaje", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({sesion:SESION, texto})
+    });
+    const d = await r.json();
+    pinta(d.respuesta, "bot");
+    if(d.dia) diaVisible = d.dia;
+    refrescaSala(diaVisible);
+  } finally {
+    $("enviar").disabled = false;
+    $("estado").textContent = "en línea";
+    $("texto").focus();
+  }
+};
+
+async function refrescaSala(dia){
+  const url = "/api/dia" + (dia ? "?dia=" + encodeURIComponent(dia) : "");
+  const d = await (await fetch(url)).json();
+  $("dia").textContent = d.dia;
+  $("n-reservas").textContent = d.total_reservas;
+  $("n-pax").textContent = d.total_comensales;
+  $("aforo").textContent = d.salas.reduce((s,x) => s + x.aforo, 0);
+  const cuerpo = $("filas");
+  cuerpo.innerHTML = "";
+  $("vacio").style.display = d.reservas.length ? "none" : "block";
+  d.reservas.forEach(r => {
+    const tr = document.createElement("tr");
+    if(!codigosPrevios.has(r.codigo)) tr.className = "nueva";
+    tr.innerHTML =
+      `<td><b>${r.hora}</b></td>` +
+      `<td>${r.nombre} · ${r.personas} pax<span class="cod">${r.codigo} · ${r.telefono}</span>` +
+        (r.notas ? `<span class="nota">⚠ ${r.notas}</span>` : "") + `</td>` +
+      `<td>${r.sala}</td><td>${r.suelta}</td>`;
+    cuerpo.appendChild(tr);
+  });
+  codigosPrevios = new Set(d.reservas.map(r => r.codigo));
+}
+
+pintaAtajos();
+arranca();
+</script>
+</body>
+</html>

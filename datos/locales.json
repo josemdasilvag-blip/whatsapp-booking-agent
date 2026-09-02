@@ -1,0 +1,79 @@
+{
+  "locales": [
+    {
+      "id": "casa-lola",
+      "nombre": "Casa Lola",
+      "ciudad": "Madrid",
+      "telefono": "+34 910 000 000",
+      "empujar_grupos_grandes": true,
+      "salas": [
+        { "nombre": "Comedor", "aforo": 80 },
+        { "nombre": "Terraza", "aforo": 40 }
+      ],
+      "turnos": {
+        "1": [
+          { "nombre": "Comida", "apertura": "13:00", "ultimo_pase": "15:30" },
+          { "nombre": "Cena", "apertura": "20:00", "ultimo_pase": "23:00" }
+        ],
+        "2": [
+          { "nombre": "Comida", "apertura": "13:00", "ultimo_pase": "15:30" },
+          { "nombre": "Cena", "apertura": "20:00", "ultimo_pase": "23:00" }
+        ],
+        "3": [
+          { "nombre": "Comida", "apertura": "13:00", "ultimo_pase": "15:30" },
+          { "nombre": "Cena", "apertura": "20:00", "ultimo_pase": "23:00" }
+        ],
+        "4": [
+          { "nombre": "Comida", "apertura": "13:00", "ultimo_pase": "15:30" },
+          { "nombre": "Cena", "apertura": "20:00", "ultimo_pase": "23:30" }
+        ],
+        "5": [
+          { "nombre": "Comida", "apertura": "13:00", "ultimo_pase": "16:00" },
+          { "nombre": "Cena", "apertura": "20:00", "ultimo_pase": "23:30" }
+        ],
+        "6": [
+          { "nombre": "Comida", "apertura": "13:00", "ultimo_pase": "16:00" }
+        ]
+      },
+      "turnos_fuertes": [
+        "4-Cena",
+        "5-Comida",
+        "5-Cena",
+        "6-Comida"
+      ],
+      "deposito": {
+        "activo": false,
+        "importe_por_persona": 15,
+        "solo_en_turnos_fuertes": true
+      }
+    },
+    {
+      "id": "el-patio",
+      "nombre": "El Patio",
+      "ciudad": "Madrid",
+      "telefono": "+34 910 000 001",
+      "empujar_grupos_grandes": false,
+      "salas": [
+        { "nombre": "Salon", "aforo": 200 }
+      ],
+      "turnos": {
+        "0": [{ "nombre": "Cena", "apertura": "20:00", "ultimo_pase": "23:00" }],
+        "1": [{ "nombre": "Cena", "apertura": "20:00", "ultimo_pase": "23:00" }],
+        "2": [{ "nombre": "Cena", "apertura": "20:00", "ultimo_pase": "23:00" }],
+        "3": [{ "nombre": "Cena", "apertura": "20:00", "ultimo_pase": "23:00" }],
+        "4": [{ "nombre": "Cena", "apertura": "20:00", "ultimo_pase": "23:30" }],
+        "5": [
+          { "nombre": "Comida", "apertura": "13:00", "ultimo_pase": "16:00" },
+          { "nombre": "Cena", "apertura": "20:00", "ultimo_pase": "23:30" }
+        ],
+        "6": [{ "nombre": "Comida", "apertura": "13:00", "ultimo_pase": "16:00" }]
+      },
+      "turnos_fuertes": ["4-Cena", "5-Comida", "5-Cena", "6-Comida"],
+      "deposito": {
+        "activo": false,
+        "importe_por_persona": 0,
+        "solo_en_turnos_fuertes": true
+      }
+    }
+  ]
+}

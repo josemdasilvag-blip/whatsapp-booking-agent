@@ -1,0 +1,25 @@
+# Secretos. El .env y CUALQUIER copia suya: los .bak de una noche de pruebas
+# son exactamente igual de peligrosos que el original y no los cubre `.env`.
+.env
+.env.*
+!.env.example
+*.bak
+*.bak-*
+*.bak2-*
+
+# Registros de ejecucion: llevan telefonos y mensajes de clientes reales.
+*.log
+registro-agente.log
+
+# Guias de alta con los identificadores reales de la app de Meta y del cliente.
+# Son notas de trabajo, no parte del producto, y no salen del portatil.
+levantar-numero-whatsapp.html
+conectar-el-webhook.html
+arrancar-agente.cmd
+
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+datos/agenda.json
+datos/demo.json
