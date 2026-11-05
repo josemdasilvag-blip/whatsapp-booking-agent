@@ -1,6 +1,6 @@
 # Ficha técnica — Agente de reservas por WhatsApp
 
-Estado real a **25 de agosto de 2026**, leído del código, no de memoria.
+Estado real a **10 de septiembre de 2026**, leído del código, no de memoria.
 Cuando cambie algo, se actualiza esta ficha. Es lo que se contesta cuando
 alguien pregunta «qué infraestructura usas».
 
@@ -53,14 +53,24 @@ ni proceso automático.
   que rechaza un token inventado.
 - **Las credenciales están en `.env`**, que ya está en `.gitignore`. No hay ni un
   token dentro del código.
-- **100 tests y pasan los 100.** Eso es un dato que se dice en una entrevista.
-- **No usa ningún LLM.** `conversacion.py` es determinista: reglas y expresiones
-  regulares, sin OpenAI ni Anthropic por ningún lado.
+- **La interpretacion usa un LLM; la decision no.** `conversacion.py` sigue siendo
+  determinista: reglas y expresiones regulares. Cuando esas reglas no sacan nada
+  --"para el finde, mejor tarde"-- entra `interprete.py`, que le pide a Claude
+  Haiku que devuelva `{personas, fecha, hora, franja}` en JSON. A partir de ahi
+  manda otra vez el codigo: aforo, turnos y huecos los decide la agenda.
+  **Un modelo no puede decir que una mesa esta libre.**
+- **Y se cae hacia el lado seguro.** Sin clave, sin red, con timeout, con JSON
+  roto o con un valor absurdo (400 personas, una fecha del año pasado), la
+  interpretacion devuelve `None` y el agente repregunta, que es exactamente lo
+  que hacia antes de existir esa capa. Hay 20 pruebas dedicadas solo a eso.
+- **149 tests y pasan los 149.** Eso es un dato que se dice en una entrevista.
 
-Ese último punto no es una carencia, es una posición, y hay que saber defenderla:
+Esa division no es casual, es la posicion del proyecto y hay que saber defenderla:
 **una reserva es un problema cerrado y el modelo no aporta nada donde una regla
-basta.** Lo que falta es la capa de LLM para interpretar lo que el cliente escribe
-en libre — «somos 4 o 5, mejor tarde» — y ahí sí aporta.
+basta.** El modelo entra solo donde la regla se queda corta, que es entender como
+escribe la gente de verdad. Un rango como «somos 4 o 5», por ejemplo, lo resuelve
+una regla --y por arriba, que si vienen cinco y reservas para cuatro uno se queda
+de pie--, no el modelo.
 
 ---
 
@@ -95,7 +105,11 @@ Es lo que convierte «lo tengo hecho» en «lo tengo funcionando».
 > El agente de reservas está en Python. La entrada es un webhook de la Cloud API
 > de Meta con la firma verificada por HMAC, la lógica de disponibilidad es
 > determinista —aforo por sala y tiempo de mesa según el tamaño del grupo, no un
-> mapa de mesas— y hoy la persistencia son ficheros JSON. Tiene cien tests y pasan.
+> mapa de mesas— y hoy la persistencia son ficheros JSON. Hay una capa de LLM,
+> pero solo para interpretar el mensaje libre del cliente: devuelve campos
+> validados y la decisión la sigue tomando el código, porque un modelo no puede
+> decir que una mesa está libre. Si esa capa falla, el agente repregunta y sigue
+> funcionando. Tiene ciento cuarenta y nueve tests y pasan.
 > Todavía no está desplegado: corre en local, y el siguiente paso es sacarlo a un
 > sitio con HTTPS público, cerrar el acceso concurrente a la agenda con un cerrojo
 > y ponerle aviso de caídas.

@@ -1,4 +1,16 @@
-# Servidor MCP de reservas de restaurante
+# WhatsApp restaurant booking agent · MCP server
+
+> **In English.** A booking agent for restaurant groups: an [MCP](https://modelcontextprotocol.io)
+> server with seven tools (list venues, check availability, create, find, modify and cancel
+> bookings, and print the day sheet) plus a WhatsApp Cloud API webhook so guests book by chat.
+> The availability engine is deterministic: capacity per room and table-turn times that depend
+> on party size, with an ordered ladder of alternatives when a slot is full. An optional
+> Claude (Haiku) layer interprets free text; **the model proposes, the code validates and
+> executes**, so the agent can never confirm a booking it did not save.
+> Python · MCP SDK · WhatsApp Cloud API · Claude API · **149 automated tests** (`python -m pytest`).
+> Venue data in `datos/` is sample data. The rest of this README is in Spanish.
+
+## Servidor MCP de reservas de restaurante
 
 Un servidor [MCP](https://modelcontextprotocol.io) que le da a un asistente las siete
 cosas que hay que saber hacer con una reserva: listar locales, mirar si cabe, crear,

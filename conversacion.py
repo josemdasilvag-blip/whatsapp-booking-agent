@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
 from agenda import Agenda, DatosInvalidos
+from interprete import interpretar
 from motor_disponibilidad import SinHueco, UMBRAL_GRUPO_GRANDE
 
 DIAS = [
@@ -88,6 +89,16 @@ def _pide_persona(texto: str) -> bool:
     return any(p in t for p in patrones)
 
 
+def _precedido_de_articulo_de_hora(t: str, posicion: int) -> bool:
+    """True si el numero viene detras de "la"/"las", o sea que es una hora.
+
+    "a la una" son las 13:00, no una persona. El camino de los digitos ya
+    hacia esta comprobacion; el de las palabras se habia quedado sin ella.
+    """
+    antes = t[max(0, posicion - 12) : posicion]
+    return "las " in antes or "la " in antes
+
+
 def _numero_de_personas(texto: str) -> int | None:
     t = _limpio(texto)
     palabras = {
@@ -95,9 +106,39 @@ def _numero_de_personas(texto: str) -> int | None:
         "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10, "once": 11,
         "doce": 12, "trece": 13, "catorce": 14, "quince": 15, "veinte": 20,
     }
-    for palabra, valor in palabras.items():
-        if re.search(rf"\b{palabra}\b", t):
-            return valor
+    # Un rango escrito con palabras ("cuatro o cinco") tambien va por arriba.
+    # Se exige el conector en medio a proposito: sin el, "para dos el dia
+    # veinte" se leeria como un rango de 2 a 20, que es justo lo que no quiero.
+    nombres = "|".join(palabras)
+    par = re.search(rf"\b({nombres})\s+(?:o|a|y)\s+({nombres})\b", t)
+    if par:
+        return max(palabras[par.group(1)], palabras[par.group(2)])
+
+    # Se recorre en el orden del TEXTO, no en el del diccionario: si no, "una
+    # mesa para cuatro" devuelve 1, porque "una" esta antes en el dict. Y si el
+    # primero es el articulo "una/uno" y detras viene otro numero, manda el otro.
+    encontrados = [
+        (m.start(), palabras[m.group(1)], m.group(1))
+        for m in re.finditer(rf"\b({'|'.join(palabras)})\b", t)
+        if not _precedido_de_articulo_de_hora(t, m.start())
+    ]
+    if encontrados:
+        encontrados.sort()
+        if encontrados[0][2] in {"una", "uno"} and len(encontrados) > 1:
+            return encontrados[1][1]
+        return encontrados[0][1]
+
+    # Un rango ("4 o 5", "entre 6 y 8", "4-5") se resuelve por arriba: si
+    # aparecen cinco y reservamos para cuatro, el quinto se queda de pie. Es
+    # un problema cerrado, asi que lo resuelve una regla y no un modelo.
+    rango = re.search(r"\b(\d{1,3})\s*(?:o|a|-|y)\s*(\d{1,3})\b", t)
+    if rango:
+        bajo, alto = int(rango.group(1)), int(rango.group(2))
+        if 1 <= bajo <= 100 and 1 <= alto <= 100 and alto > bajo:
+            antes = t[max(0, rango.start() - 12) : rango.start()]
+            if "las " not in antes and "la " not in antes:
+                return alto
+
     # Un numero suelto, pero no si es una hora ("a las 21").
     for m in re.finditer(r"\b(\d{1,3})\b", t):
         n = int(m.group(1))
@@ -228,6 +269,10 @@ class Conversacion:
     notas: str = ""
     alternativas: list[datetime] = field(default_factory=list)
     codigo: str = ""
+    # Inyectable en tests, para que la bateria no toque la red.
+    pedir_al_modelo: object = None
+    _texto_interpretado: str = ""
+    _interpretacion: object = None
 
     # -- utilidades internas ----------------------------------------------
 
@@ -241,6 +286,23 @@ class Conversacion:
 
     def _salas(self) -> list[str]:
         return [s["nombre"] for s in self.ficha["salas"]]
+
+    def _interpretar(self, texto: str):
+        """Puente a la capa de LLM. Solo se usa cuando lo determinista falla.
+
+        Se cachea por mensaje: un mismo texto pasa por el paso de personas y por
+        el de cuando, y no tiene sentido pagar dos llamadas para lo mismo.
+        """
+        if texto == self._texto_interpretado:
+            return self._interpretacion
+        try:
+            entendido = interpretar(texto, self.hoy, pedir=self.pedir_al_modelo)
+        except Exception:
+            # La interpretacion es un extra. Si se rompe, se sigue sin ella.
+            entendido = None
+        self._texto_interpretado = texto
+        self._interpretacion = entendido
+        return entendido
 
     def _pregunta_del_paso(self) -> str:
         if self.paso == PERSONAS:
@@ -390,6 +452,11 @@ class Conversacion:
         if self.paso == PERSONAS:
             n = _numero_de_personas(texto)
             if n is None:
+                # "somos 4 o 5", "un grupito de unos ocho": esto no lo saca una
+                # expresion regular sin volverse loca. Que lo lea el modelo.
+                entendido = self._interpretar(texto)
+                n = entendido.personas if entendido else None
+            if n is None:
                 return "Cuántas personas seríais? Dime un número."
             self.personas = n
             # A veces lo dicen todo de una: "somos 4 el viernes a las 21".
@@ -501,6 +568,13 @@ class Conversacion:
         """Saca fecha y hora del mensaje. Devuelve texto solo si hay que repreguntar."""
         dia = _fecha(texto, self.hoy)
         hora = _hora(texto)
+        franja = None
+        if dia is None and hora is None:
+            # Ultima parada antes de repreguntar. El modelo interpreta el texto
+            # libre; la disponibilidad la sigue decidiendo el aforo, no el.
+            entendido = self._interpretar(texto)
+            if entendido is not None:
+                dia, hora, franja = entendido.fecha, entendido.hora, entendido.franja
         if dia is None and hora is None:
             return ""
         if dia is None:
@@ -512,6 +586,8 @@ class Conversacion:
             dia = self.momento.date()
         if hora is None:
             turno_noche = _es_de_noche(texto)
+            if turno_noche is None and franja is not None:
+                turno_noche = franja == "cena"
             if turno_noche is None:
                 self.momento = None
                 return f"Para el {dia:%d/%m}, comida o cena? Y a qué hora?"
